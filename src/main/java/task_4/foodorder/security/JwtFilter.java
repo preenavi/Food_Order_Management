@@ -6,16 +6,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import task_4.foodorder.entity.User;
-import task_4.foodorder.repository.UserRepository;
 
 import java.io.IOException;
-import java.util.List;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {
@@ -24,7 +21,7 @@ public class JwtFilter extends OncePerRequestFilter {
     private JwtUtil jwtUtil;
 
     @Autowired
-    private UserRepository userRepository;
+    private CustomUserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -34,27 +31,29 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+        try {
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String token = authHeader.substring(7);
 
-            String token = authHeader.substring(7);
-
-            try {
-                String email = jwtUtil.extractEmail(token);
-                if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                    User user = userRepository.findByEmail(email).orElse(null);
-                    if (user != null && user.getRole() != null) {
-                        List<SimpleGrantedAuthority> authorities = List.of(
-                                new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
-                        );
+                if (jwtUtil.isTokenValid(token)) {
+                    String email = jwtUtil.extractEmail(token);
+                    if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
                         UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(email, null, authorities);
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails, null, userDetails.getAuthorities());
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
+                        logger.info("Valid JWT token set for user: " + email);
                     }
+                } else {
+                    logger.warn("Invalid JWT token");
+                    SecurityContextHolder.clearContext();
                 }
-            } catch (Exception e) {
-                System.out.println("Invalid Token");
             }
+        } catch (Exception e) {
+            logger.error("Error processing JWT token: " + e.getMessage());
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);

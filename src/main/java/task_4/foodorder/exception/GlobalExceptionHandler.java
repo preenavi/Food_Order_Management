@@ -16,7 +16,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Object>> handleNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ApiResponse<>(false, ex.getMessage(), null));
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .errorCode("NOT_FOUND")
+                        .build());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -25,24 +29,50 @@ public class GlobalExceptionHandler {
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ApiResponse<>(false, message, null));
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(message)
+                        .errorCode("VALIDATION_ERROR")
+                        .build());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ApiResponse<>(false, ex.getMessage(), null));
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .errorCode("BAD_REQUEST")
+                        .build());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(new ApiResponse<>(false, "Access denied", null));
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message("Access denied")
+                        .errorCode("FORBIDDEN")
+                        .build());
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ApiResponse<Object>> handleRuntimeException(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .errorCode("BAD_REQUEST")
+                        .build());
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Object>> handleGeneric(Exception ex) {
+    public ResponseEntity<ApiResponse<Object>> handleGeneralException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiResponse<>(false, "Unexpected error", null));
+                .body(ApiResponse.builder()
+                        .success(false)
+                        .message("An unexpected error occurred: " + ex.getMessage())
+                        .errorCode("INTERNAL_SERVER_ERROR")
+                        .build());
     }
 }
